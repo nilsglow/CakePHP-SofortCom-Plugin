@@ -74,7 +74,6 @@ class SofortlibComponent extends Component
 
     public function HandleNotifyUrl($eShopId, $status, $ip, $rawPostStream = 'php://input')
     {
-        debug($this->Config);
         $shop_id = Security::rijndael(
                 self::Base64Decode($eShopId),
                 Configure::read('Security.salt'),
