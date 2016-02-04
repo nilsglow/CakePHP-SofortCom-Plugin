@@ -74,10 +74,7 @@ class SofortlibComponent extends Component
 
     public function HandleNotifyUrl($eShopId, $status, $ip, $rawPostStream = 'php://input')
     {
-        $shop_id = Security::rijndael(
-                self::Base64Decode($eShopId),
-                Configure::read('Security.salt'),
-                'decrypt');
+        $shop_id = static::DecryptShopId($eShopId);
 
         $notification = new SofortLibNotification();
         $success = $notification->getNotification(
@@ -114,7 +111,7 @@ class SofortlibComponent extends Component
         if (empty($this->shop_id))
             throw new InvalidArgumentException("No shop_id set.");
 
-        $eShopId = rawurlencode(self::Base64Encode(Security::rijndael($this->shop_id, Configure::read('Security.salt'), 'encrypt')));
+        $eShopId = static::EncryptShopId($this->shop_id);
         $notificationUrl = Router::url('/SofortComPayment/Notify/' . $eShopId, true);
         foreach ($this->states as $state)
             $this->Sofortueberweisung->setNotificationUrl($notificationUrl . '/' . $state, $state);
@@ -194,6 +191,33 @@ class SofortlibComponent extends Component
     public static function Base64Decode($s)
     {
         return base64_decode(str_replace(array(',', '-'), array('\\', '/'), $s));
+    }
+
+    /**
+     * Encrypts the supplied shop ID for the request to SOFORT.com.
+     *
+     * @param string|int $shopId shop ID this transaction is related to
+     */
+    public static function EncryptShopId($shopId){
+        $encrypted = Security::rijndael($shopId, Configure::read('Security.salt'), 'encrypt');
+        $base64 = self::Base64Encode($encrypted);
+        return rawurlencode($base64);
+    }
+
+    /**
+     * Decrypts the shop ID the transaction in question is related to.
+     *
+     * @param string $eShopId encrypted shop ID as supplied by SOFORT.com notify
+     *         request
+     */
+    public static function DecryptShopId($eShopId){
+        // URL param from CakePHP comes in decoded already
+        // but to handle + signs correctly we need to encode and decode again
+        $urlEncoded = urlencode($eShopId);
+        $base64 = rawurldecode($urlEncoded);
+
+        $encrypted = self::Base64Decode($base64);
+        return Security::rijndael($encrypted, Configure::read('Security.salt'), 'decrypt');
     }
 }
 
